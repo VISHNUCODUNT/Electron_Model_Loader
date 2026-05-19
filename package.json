@@ -4,6 +4,7 @@
   "main": "electron/main.cjs",
   "type": "module",
   "scripts": {
+    "start": "vite build && electron .",
     "dev": "concurrently \"vite\" \"wait-on http://localhost:5173 && electron .\"",
     "build": "vite build",
     "preview": "vite preview",

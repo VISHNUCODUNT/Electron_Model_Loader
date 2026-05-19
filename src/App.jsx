@@ -1,6 +1,8 @@
-import React, { Suspense } from 'react'
+import React, { Suspense, useState, useEffect } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, useGLTF, Environment, ContactShadows, Center, Bounds } from '@react-three/drei'
+import { OrbitControls, useGLTF, Environment, ContactShadows, Center, Bounds, useProgress } from '@react-three/drei'
+import { WebGLRenderer } from 'three'
+import WebGPURenderer from 'three/examples/jsm/renderers/webgpu/WebGPURenderer.js'
 
 // ============================================================================
 // ONLINE vs OFFLINE MODEL LOADING WORKFLOW
@@ -36,19 +38,80 @@ function Assembly() {
   )
 }
 
+function LoaderOverlay() {
+  const { active, progress } = useProgress()
+  const [shouldRender, setShouldRender] = useState(true)
+  const [fadeClass, setFadeClass] = useState('fade-in')
+
+  useEffect(() => {
+    if (!active) {
+      // Start fade out animation when loading is done
+      setFadeClass('fade-out')
+      const timeout = setTimeout(() => {
+        setShouldRender(false)
+      }, 500) // matches CSS transition duration
+      return () => clearTimeout(timeout)
+    } else {
+      setShouldRender(true)
+      setFadeClass('fade-in')
+    }
+  }, [active])
+
+  if (!shouldRender) return null
+
+  return (
+    <div className={`loader-overlay ${fadeClass}`}>
+      <div className="loader-content">
+        <div className="spinner"></div>
+        <div className="loader-text">Loading Model... {Math.round(progress)}%</div>
+      </div>
+    </div>
+  )
+}
+
 function Viewer() {
+  const [rendererType, setRendererType] = useState('Initializing Engine...')
+
   return (
     <div className="viewer-container">
+      <LoaderOverlay />
+      
       <div className="ui-overlay">
         <div className="title-card">
           <h1>TEST FPSO</h1>
           <p>Automated 3D Asset Inspection</p>
+          <div className="gpu-badge">{rendererType}</div>
         </div>
       </div>
 
-      <Suspense fallback={<div className="loading-msg">Initializing 3D Environment...</div>}>
-        <Canvas shadows camera={{ position: [500, 300, 500], fov: 45, near: 1, far: 10000 }}>
-          <color attach="background" args={['#ffffffff']} />
+      <Suspense fallback={null}>
+        <Canvas 
+          shadows 
+          camera={{ position: [500, 300, 500], fov: 45, near: 1, far: 10000 }}
+          gl={async (canvas) => {
+            let renderer;
+            
+            // 1. Check if WebGPU is supported by the browser/system
+            if (navigator.gpu) {
+              try {
+                renderer = new WebGPURenderer({ canvas, antialias: true });
+                await renderer.init();
+                setRendererType('WebGPU (Next-Gen Graphics)');
+              } catch (e) {
+                console.warn("WebGPU initialization failed, falling back to WebGL2:", e);
+              }
+            }
+            
+            // 2. Fallback to WebGLRenderer if WebGPU is not supported or failed to initialize
+            if (!renderer) {
+              renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true });
+              setRendererType('WebGL2 (Legacy Fallback)');
+            }
+            
+            return renderer;
+          }}
+        >
+          <color attach="background" args={['#eef2f7']} />
 
           <ambientLight intensity={0.5} />
           <directionalLight position={[100, 100, 50]} intensity={1} castShadow />

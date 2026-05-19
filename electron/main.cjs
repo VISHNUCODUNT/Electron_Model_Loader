@@ -13,24 +13,15 @@ function createWindow() {
     },
   });
 
-  const isDev = !app.isPackaged;
-  if (isDev) {
-    // ONLINE (Development Mode)
-    // Electron loads the UI and 3D models via HTTP from the Vite dev server
-    win.loadURL('http://localhost:5173');
-    win.webContents.openDevTools();
-  } else {
-    // OFFLINE (Production Mode)
-    // Electron loads the compiled React code and the .glb files directly from the hard drive
-    win.loadFile(path.join(__dirname, '../dist/index.html'));
-  }
+  // Always load the built app from disk (no Vite dev server needed)
+  win.loadFile(path.join(__dirname, '../dist/index.html'));
 
   // Set CSP
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': ["default-src 'self' data: blob: http://localhost:5173; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' *; img-src 'self' data: blob: *;"]
+        'Content-Security-Policy': ["default-src 'self' data: blob:; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; connect-src 'self' *; img-src 'self' data: blob: *;"]
       }
     });
   });
